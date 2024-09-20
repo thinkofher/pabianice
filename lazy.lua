@@ -57,6 +57,4 @@ return {
     "tpope/vim-fugitive",
     cmd = "G",
   },
-
-  { "nvim-tree/nvim-web-devicons", lazy = true },
 }
