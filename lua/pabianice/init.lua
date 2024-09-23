@@ -12,10 +12,8 @@ M.setup = function(opts)
   vim.o.background = "dark"
   vim.cmd.colorscheme("habamax")
 
-  -- GUI settings
   if vim.g.neovide then
-    vim.o.guifont = "Iosevka Term:h13"
-    vim.g.neovide_cursor_vfx_mode = "ripple"
+    M.gui()
   end
 
   -- setup netrw plugin
@@ -61,8 +59,18 @@ M.basics = function()
   vim.g.loaded_ruby_provider = 0
   vim.g.loaded_perl_provider = 0
   vim.g.loaded_node_provider = 0
-
 end
+
+M.gui = function()
+  vim.o.guifont = "Iosevka Term:h13"
+  vim.g.neovide_cursor_vfx_mode = "ripple"
+
+  if vim.loop.os_uname().sysname == "Darwin" then
+    vim.g.neovide_show_border = true
+  end
+end
+
+
 
 M.keys = function()
   local wk = require("which-key")
@@ -78,18 +86,6 @@ M.keys = function()
       {"<leader>ff", lazy("fzf-lua", "files"), desc = "file search"},
       {"<leader>fb", lazy("fzf-lua", "buffers"), desc = "buffer seearch"},
       {"<leader>fg", lazy("fzf-lua", "live_grep"), desc = "live grep"},
-    },
-
-    -- persistence
-    {
-      mode = "n",
-
-      "<leader>q", group = "persistence",
-      {"<leader>qw", lazy("persistence", "save"), desc = "save session"},
-      {"<leader>qs", lazy("persistence", "load"), desc = "load session"},
-      {"<leader>qS", lazy("persistence", "select"), desc = "select session"},
-      {"<leader>ql", lazy("persistence", "load", { last = true }), desc = "last session"},
-      {"<leader>qd", lazy("persistence", "stop"), desc = "stop recording"},
     },
 
     -- terminal settings
