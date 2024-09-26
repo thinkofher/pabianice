@@ -70,8 +70,6 @@ M.gui = function()
   end
 end
 
-
-
 M.keys = function()
   local wk = require("which-key")
 
@@ -109,10 +107,16 @@ M.keys = function()
 end
 
 M.lsp = function()
+
   local lsp_zero = require("lsp-zero")
   local wk = require("which-key")
 
   vim.opt.completeopt = {"menu", "menuone", "noinsert", "noselect"}
+
+  -- setup icons for GUI neovim client
+  if vim.g.neovide then
+    M.lsp_icons()
+  end
 
   -- lsp_attach is where you enable features that only work
   -- if there is a language server active in the file
@@ -186,6 +190,40 @@ M.lsp = function()
       },
     },
   })
+end
+
+M.lsp_icons = function()
+  icons = {
+    Text = "",
+    Method = "",
+    Function = "",
+    Constructor = "",
+    Field = "ﰠ",
+    Variable = "",
+    Class = "ﴯ",
+    Interface = "",
+    Module = "",
+    Property = "ﰠ",
+    Unit = "塞",
+    Value = "",
+    Enum = "",
+    Keyword = "",
+    Snippet = "",
+    Color = "",
+    File = "",
+    Reference = "",
+    Folder = "",
+    EnumMember = "",
+    Constant = "",
+    Struct = "פּ",
+    Event = "",
+    Operator = "",
+    TypeParameter = "",
+  }
+
+  for i, kind in ipairs(vim.lsp.protocol.CompletionItemKind) do
+    vim.lsp.protocol.CompletionItemKind[i] = icons[kind] or kind
+  end
 end
 
 return M
