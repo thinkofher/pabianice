@@ -25,6 +25,7 @@ M.setup = function(opts)
   M.basics()
   M.keys()
   M.lsp()
+  M.cmp()
 end
 
 M.basics = function()
@@ -107,16 +108,15 @@ M.keys = function()
 end
 
 M.lsp = function()
-
   local lsp_zero = require("lsp-zero")
   local wk = require("which-key")
 
   vim.opt.completeopt = {"menu", "menuone", "noinsert", "noselect"}
 
   -- setup icons for GUI neovim client
-  if vim.g.neovide then
-    M.lsp_icons()
-  end
+  -- if vim.g.neovide then
+  --   M.lsp_icons()
+  -- end
 
   -- lsp_attach is where you enable features that only work
   -- if there is a language server active in the file
@@ -159,7 +159,7 @@ M.lsp = function()
   lsp_zero.extend_lspconfig({
     sign_text = false,
     lsp_attach = lsp_attach,
-    capabilities = vim.lsp.protocol.make_client_capabilities()
+    capabilities = require('cmp_nvim_lsp').default_capabilities(),
   })
 
   -- don't add this function in the `lsp_attach` callback.
@@ -224,6 +224,53 @@ M.lsp_icons = function()
   for i, kind in ipairs(vim.lsp.protocol.CompletionItemKind) do
     vim.lsp.protocol.CompletionItemKind[i] = icons[kind] or kind
   end
+end
+
+M.cmp = function()
+  local cmp = require("cmp")
+
+  local formatting = {}
+  if vim.g.neovide then
+    local lspkind = require('lspkind')
+
+    formatting = {
+      format = lspkind.cmp_format({
+        mode = 'symbol',
+        maxwidth = 50,
+        ellipsis_char = '...',
+        show_labelDetails = true,
+      })
+    }
+  end
+
+  cmp.setup({
+    sources = {
+      { name = "nvim_lsp" },
+      { name = "path" },
+      { name = "buffer" },
+    },
+    mapping = {
+      ["<C-n>"] = cmp.mapping.select_next_item({
+        behavior = cmp.SelectBehavior.Insert,
+      }),
+      ["<C-p>"] = cmp.mapping.select_prev_item({
+        behavior = cmp.SelectBehavior.Insert,
+      }),
+      ["<C-y>"] = cmp.mapping(
+        cmp.mapping.confirm({
+          behavior = cmp.ConfirmBehavior.Insert,
+          select = true,
+        }),
+        { "i", "c" }
+      ),
+    },
+    window = {
+      completion = {
+        scrollbar = false,
+      },
+    },
+    formatting = formatting,
+  })
 end
 
 return M
