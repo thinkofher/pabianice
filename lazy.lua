@@ -67,6 +67,9 @@ return {
           hidden = "hidden",
         },
       },
+      files = {
+        fd_opts = [[--color=never --type f --hidden --follow --exclude .git --exclude node_modules]],
+      },
     },
   },
 
