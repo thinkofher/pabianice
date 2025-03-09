@@ -24,6 +24,8 @@ function M.setup(opts)
 
   M.basics()
   M.keys()
+
+  _G.pabianice_opts = opts
 end
 
 function M.basics()
@@ -217,7 +219,7 @@ function M.cmp()
         scrollbar = false,
       },
     },
-    formatting = vim.g.neovide and {
+    formatting = (vim.g.neovide or _G.pabianice_opts.icons) and {
       format = require('lspkind').cmp_format({
         mode = 'symbol',
         maxwidth = 50,
