@@ -7,6 +7,8 @@ local lazy = function(module, func, args)
 end
 
 function M.setup(opts)
+  local wk = require("which-key")
+
   -- colorscheme
   vim.opt.termguicolors = true
   vim.o.background = "dark"
@@ -22,13 +24,6 @@ function M.setup(opts)
   vim.g.netrw_liststyle = 3
   vim.g.netrw_list_hide = ",\\(^\\|\\s\\s\\)\\zs\\.\\S\\+"
 
-  M.basics()
-  M.keys()
-
-  _G.pabianice_opts = opts
-end
-
-function M.basics()
   vim.cmd[[filetype plugin on]]
   vim.cmd[[filetype plugin indent on]]
 
@@ -60,19 +55,8 @@ function M.basics()
   vim.g.loaded_ruby_provider = 0
   vim.g.loaded_perl_provider = 0
   vim.g.loaded_node_provider = 0
-end
 
-function M.gui(opts)
-  vim.o.guifont = opts.gui_font or "Iosevka Term:h13"
-  vim.g.neovide_cursor_vfx_mode = "ripple"
-
-  if vim.loop.os_uname().sysname == "Darwin" then
-    vim.g.neovide_show_border = true
-  end
-end
-
-function M.keys()
-  local wk = require("which-key")
+  vim.opt.completeopt = {"menu", "menuone", "noinsert", "noselect", "fuzzy"}
 
   wk.add({
     -- fuzzy finding with fzf
@@ -86,6 +70,8 @@ function M.keys()
       {"<leader>fb", lazy("fzf-lua", "buffers"), desc = "buffer seearch"},
       {"<leader>fg", lazy("fzf-lua", "live_grep"), desc = "live grep"},
     },
+
+    {"gr", group = "builtin lsp commands"},
 
     -- terminal settings
     {"<c-v><esc>", "<c-\\><c-n>", mode = "t", desc = "leave terminal"},
@@ -105,73 +91,13 @@ function M.keys()
       {"<leader>bP", "\"*P", desc = "Clipboard paste"},
     },
   })
-end
 
-function M.lsp()
-  local lsp_zero = require("lsp-zero")
-  local wk = require("which-key")
-
-  vim.opt.completeopt = {"menu", "menuone", "noinsert", "noselect"}
-
-  -- lsp_attach is where you enable features that only work
-  -- if there is a language server active in the file
-  local lsp_attach = function(client, bufnr)
-    local opts = {buffer = bufnr}
-
-    wk.add({
-      {
-        buffer = bufnr,
-        mode = "n",
-
-        {"K", "<cmd>lua vim.lsp.buf.hover()<cr>"},
-
-        {"gd", "<cmd>lua vim.lsp.buf.definition()<cr>"},
-        {"gD", "<cmd>lua vim.lsp.buf.declaration()<cr>"},
-        {"gi", "<cmd>lua vim.lsp.buf.implementation()<cr>"},
-        {"go", "<cmd>lua vim.lsp.buf.type_definition()<cr>"},
-        {"gr", "<cmd>lua vim.lsp.buf.references()<cr>"},
-        {"gs", "<cmd>lua vim.lsp.buf.signature_help()<cr>"},
-        {"gl", "<cmd>lua vim.diagnostic.open_float()<cr>"},
-
-        {"<leader>l", group = "lsp"},
-        {"<leader>lr", "<cmd>lua vim.lsp.buf.rename()<cr>", desc = "rename"},
-        {"<leader>la", "<cmd>lua vim.lsp.buf.code_action()<cr>", desc = "code action"},
-        {
-          "<leader>lh", "<cmd>lua vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())<cr>",
-          desc = "toggle inlay hints",
-        },
-      },
-
-      {"<F3>", "<cmd>lua vim.lsp.buf.format({async = true})<cr>", buffer = bufnr, mode = {"n", "x"}},
-    })
-  end
-
-  vim.diagnostic.config({
-    virtual_text = false,
-    severity_sort = true,
-  })
-
-  lsp_zero.extend_lspconfig({
-    sign_text = false,
-    lsp_attach = lsp_attach,
-    capabilities = require('cmp_nvim_lsp').default_capabilities(),
-  })
-
-  -- don't add this function in the `lsp_attach` callback.
-  -- `format_on_save` should run only once, before the language servers are active.
-  lsp_zero.format_on_save({
-    format_opts = {
-      async = false,
-      timeout_ms = 10000,
-    },
-    servers = {
-      ['gopls'] = {'go'},
-    },
-  })
-
-  local lspconfig = require('lspconfig')
-  lspconfig.gopls.setup({
+  vim.lsp.config.gopls = {
+    cmd = { 'gopls' },
+    root_markers = { 'go.work', 'go.mod' },
+    filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
     settings = {
+      autoformat = true,
       gopls = {
         hints = {
           assignVariableTypes = false,
@@ -184,49 +110,69 @@ function M.lsp()
         },
       },
     },
-  })
+  }
 
-  M.cmp()
+  vim.lsp.enable({ 'gopls' })
+
+  _G.pabianice_opts = opts
 end
 
-function M.cmp()
-  local cmp = require("cmp")
+function M.gui(opts)
+  vim.o.guifont = opts.gui_font or "Iosevka Term:h13"
+  vim.g.neovide_cursor_vfx_mode = "ripple"
 
-  cmp.setup({
-    sources = {
-      { name = "nvim_lsp" },
-      { name = "path" },
-      { name = "buffer" },
-    },
-    mapping = {
-      ["<C-x><C-o>"] = cmp.mapping.complete(),
-      ["<C-n>"] = cmp.mapping.select_next_item({
-        behavior = cmp.SelectBehavior.Insert,
-      }),
-      ["<C-p>"] = cmp.mapping.select_prev_item({
-        behavior = cmp.SelectBehavior.Insert,
-      }),
-      ["<C-y>"] = cmp.mapping(
-        cmp.mapping.confirm({
-          behavior = cmp.ConfirmBehavior.Insert,
-          select = true,
-        }),
-        { "i", "c" }
-      ),
-    },
-    window = {
-      completion = {
-        scrollbar = false,
+  if vim.loop.os_uname().sysname == "Darwin" then
+    vim.g.neovide_show_border = true
+  end
+end
+
+function M.lsp_on_attach(client, bufnr)
+  local wk = require("which-key")
+
+  wk.add({
+    {
+      buffer = bufnr,
+      mode = "n",
+
+      {"K", "<cmd>lua vim.lsp.buf.hover()<cr>"},
+
+      {"grg", group = "custom lsp commands"},
+
+      {
+        "grgd", "<cmd>lua vim.lsp.buf.definition()<cr>",
+        desc = "definition",
+      },
+      {
+        "grgD", "<cmd>lua vim.lsp.buf.declaration()<cr>",
+        desc = "declaration",
+      },
+      {
+        "grgo", "<cmd>lua vim.lsp.buf.type_definition()<cr>",
+        desc = "type definition",
+      },
+      {
+        "grgs", "<cmd>lua vim.lsp.buf.signature_help()<cr>",
+        desc = "signature help",
+      },
+      {
+        "grgl", "<cmd>lua vim.diagnostic.open_float()<cr>",
+        desc = "diagnostic details",
+      },
+      {
+        "grgf", "<cmd>lua vim.lsp.buf.format({async = true})<cr>",
+        buffer = bufnr, mode = {"n", "x"}, desc = "format current buffer",
+      },
+      {
+        "grgh", "<cmd>lua vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())<cr>",
+        desc = "toggle inlay hints",
       },
     },
-    formatting = (vim.g.neovide or _G.pabianice_opts.icons) and {
-      format = require('lspkind').cmp_format({
-        mode = 'symbol',
-        maxwidth = 50,
-        ellipsis_char = '...',
-        show_labelDetails = true,
-      })
-    } or {},
+
+  })
+
+  vim.diagnostic.config({
+    virtual_lines = true,
+    severity_sort = true,
   })
 end
 
