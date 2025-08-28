@@ -36,27 +36,6 @@ return {
   },
 
   {
-    "ibhagwan/fzf-lua",
-    event = "VeryLazy",
-    opts = {
-      "telescope",
-      winopts = {
-        width = 1.0,
-        height = 0.35,
-        row = 1,
-        col = 0,
-        border = 'single',
-        preview = {
-          hidden = "hidden",
-        },
-      },
-      files = {
-        fd_opts = [[--color=never --type f --hidden --follow --exclude .git --exclude node_modules]],
-      },
-    },
-  },
-
-  {
     "tpope/vim-fugitive",
     cmd = "G",
   },

@@ -7,8 +7,6 @@ local lazy = function(module, func, args)
 end
 
 function M.setup(opts)
-  local wk = require("which-key")
-
   -- colorscheme
   vim.opt.termguicolors = true
   vim.o.background = "dark"
@@ -58,17 +56,23 @@ function M.setup(opts)
 
   vim.opt.completeopt = {"menu", "menuone", "noinsert", "noselect", "fuzzy"}
 
+  local feed = function(cmd)
+    return function()
+      vim.fn.feedkeys(vim.api.nvim_replace_termcodes(cmd, true, false, true), "c")
+    end
+  end
+
+  local wk = require("which-key")
+
   wk.add({
-    -- fuzzy finding with fzf
     {
       mode = "n",
 
-      {"<c-p>", lazy("fzf-lua", "files"), desc = "Fuzzy file search"},
+      {"<c-p>", ":PFind<cr>", desc = "Fuzzy file search"},
 
-      {"<leader>f", group = "fuzzy"},
-      {"<leader>ff", lazy("fzf-lua", "files"), desc = "file search"},
-      {"<leader>fb", lazy("fzf-lua", "buffers"), desc = "buffer seearch"},
-      {"<leader>fg", lazy("fzf-lua", "live_grep"), desc = "live grep"},
+      {"<leader>f", group = "async find"},
+      {"<leader>ff", ":PFind<cr>", desc = "file search"},
+      {"<leader>fg", feed(":PGrep "), desc = "grep"},
     },
 
     {"gr", group = "builtin lsp commands"},
@@ -174,6 +178,67 @@ function M.lsp_on_attach(client, bufnr)
     virtual_lines = true,
     severity_sort = true,
   })
+end
+
+function M.find(pattern)
+  local uv = vim.uv
+  local outf = vim.fn.tempname()
+  local pipe = uv.new_pipe(false)
+  local getlist = vim.schedule_wrap(vim.cmd.cgetfile)
+  local notify = vim.schedule_wrap(vim.notify)
+
+  uv.fs_open(outf, "w", tonumber('666', 8), function(_err, out)
+    assert(not _err, _err)
+
+    local opts = {
+      stdio = { nil, out, nil },
+      args = {
+        "--color", "never", "--hidden", "--follow",
+        "--exclude", ".git", "--exclude", "node_modules",
+        "-t", "f", "--format", "{}:1:1: <<{/}>>", pattern,
+      },
+    }
+    uv.spawn("fd", opts, function(code, signal)
+      assert(code == 0, "failed to spawn fd")
+
+      uv.close(pipe)
+      uv.fs_close(out, function(_err)
+        assert(not _err, _err)
+        getlist(outf)
+        notify("search is done")
+      end)
+    end)
+  end)
+end
+
+function M.grep(pattern)
+  local uv = vim.uv
+  local outf = vim.fn.tempname()
+  local pipe = uv.new_pipe(false)
+  local getlist = vim.schedule_wrap(vim.cmd.cfile)
+  local notify = vim.schedule_wrap(vim.notify)
+
+  uv.fs_open(outf, "w", tonumber('666', 8), function(_err, out)
+    assert(not _err, _err)
+
+    local opts = {
+      stdio = { nil, out, nil },
+      args = {"--vimgrep", "-uu", pattern},
+    }
+    uv.spawn("rg", opts, function(code, signal)
+      uv.close(pipe)
+      uv.fs_close(out, function(_err)
+        assert(not _err, _err)
+
+        if code == 0 then
+          getlist(outf)
+          notify("grep is done")
+        else
+          notify("grep is empty")
+        end
+      end)
+    end)
+  end)
 end
 
 return M
