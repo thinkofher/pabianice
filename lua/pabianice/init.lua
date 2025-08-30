@@ -1,16 +1,9 @@
 M = {}
 
-local lazy = function(module, func, args)
-  return function()
-    require(module)[func](args)
-  end
-end
-
 function M.setup(opts)
   -- colorscheme
   vim.opt.termguicolors = true
   vim.o.background = "dark"
-  vim.cmd.colorscheme("habamax")
 
   if vim.g.neovide then
     M.gui(opts)
@@ -28,6 +21,7 @@ function M.setup(opts)
   -- searching files
   vim.opt.path:append("**")
   vim.o.wildmenu = true
+  vim.opt.wildignore = { ".git", "*.o", "*.a", "__pycache__", "node_modules" }
   vim.o.incsearch = true
   vim.o.ignorecase = true
 
@@ -56,6 +50,18 @@ function M.setup(opts)
 
   vim.opt.completeopt = {"menu", "menuone", "noinsert", "noselect", "fuzzy"}
 
+  function _G.rg_findfunc(cmdarg, _cmdcomplete)
+    local fnames = vim.fn.systemlist('rg --files --hidden --color=never --glob="!.git"')
+    if #cmdarg == 0 then
+      return fnames
+    else
+      return vim.fn.matchfuzzy(fnames, cmdarg)
+    end
+  end
+
+  vim.o.findfunc = 'v:lua.rg_findfunc'
+  vim.o.pumheight = 12
+
   local feed = function(cmd)
     return function()
       vim.fn.feedkeys(vim.api.nvim_replace_termcodes(cmd, true, false, true), "c")
@@ -63,16 +69,20 @@ function M.setup(opts)
   end
 
   local wk = require("which-key")
+  local feed_find = feed(':lua require("pabianice.1905").find([[]])<Left><Left><Left>')
 
   wk.add({
     {
       mode = "n",
 
-      {"<c-p>", ":PFind<cr>", desc = "Fuzzy file search"},
+      {"<c-p>", feed_find, desc = "Fuzzy file search"},
 
       {"<leader>f", group = "async find"},
-      {"<leader>ff", ":PFind<cr>", desc = "file search"},
-      {"<leader>fg", feed(":PGrep "), desc = "grep"},
+      {"<leader>ff", feed_find, desc = "file search"},
+      {
+        "<leader>fg", feed(':lua require("pabianice.1905").grep([[]])<Left><Left><Left>'),
+        desc = "grep",
+      },
     },
 
     {"gr", group = "builtin lsp commands"},
@@ -80,6 +90,9 @@ function M.setup(opts)
     -- terminal settings
     {"<c-v><esc>", "<c-\\><c-n>", mode = "t", desc = "leave terminal"},
     {"<leader>t", ":tabnew<cr>:terminal<cr>", mode = "n", desc = "open terminal"},
+
+    {"<leader>co", ":cope<cr>", mode = "n", desc = "open qf"},
+    {"<leader>cl", ":ccl<cr>", mode = "n", desc = "close qf"},
 
     -- toggle grammer spelling
     {"<leader>cs", function()
@@ -117,8 +130,6 @@ function M.setup(opts)
   }
 
   vim.lsp.enable({ 'gopls' })
-
-  _G.pabianice_opts = opts
 end
 
 function M.gui(opts)
@@ -128,117 +139,6 @@ function M.gui(opts)
   if vim.loop.os_uname().sysname == "Darwin" then
     vim.g.neovide_show_border = true
   end
-end
-
-function M.lsp_on_attach(client, bufnr)
-  local wk = require("which-key")
-
-  wk.add({
-    {
-      buffer = bufnr,
-      mode = "n",
-
-      {"K", "<cmd>lua vim.lsp.buf.hover()<cr>"},
-
-      {"grg", group = "custom lsp commands"},
-
-      {
-        "grgd", "<cmd>lua vim.lsp.buf.definition()<cr>",
-        desc = "definition",
-      },
-      {
-        "grgD", "<cmd>lua vim.lsp.buf.declaration()<cr>",
-        desc = "declaration",
-      },
-      {
-        "grgo", "<cmd>lua vim.lsp.buf.type_definition()<cr>",
-        desc = "type definition",
-      },
-      {
-        "grgs", "<cmd>lua vim.lsp.buf.signature_help()<cr>",
-        desc = "signature help",
-      },
-      {
-        "grgl", "<cmd>lua vim.diagnostic.open_float()<cr>",
-        desc = "diagnostic details",
-      },
-      {
-        "grgf", "<cmd>lua vim.lsp.buf.format({async = true})<cr>",
-        buffer = bufnr, mode = {"n", "x"}, desc = "format current buffer",
-      },
-      {
-        "grgh", "<cmd>lua vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())<cr>",
-        desc = "toggle inlay hints",
-      },
-    },
-
-  })
-
-  vim.diagnostic.config({
-    virtual_lines = true,
-    severity_sort = true,
-  })
-end
-
-function M.find(pattern)
-  local uv = vim.uv
-  local outf = vim.fn.tempname()
-  local pipe = uv.new_pipe(false)
-  local getlist = vim.schedule_wrap(vim.cmd.cgetfile)
-  local notify = vim.schedule_wrap(vim.notify)
-
-  uv.fs_open(outf, "w", tonumber('666', 8), function(_err, out)
-    assert(not _err, _err)
-
-    local opts = {
-      stdio = { nil, out, nil },
-      args = {
-        "--color", "never", "--hidden", "--follow",
-        "--exclude", ".git", "--exclude", "node_modules",
-        "-t", "f", "--format", "{}:1:1: <<{/}>>", pattern,
-      },
-    }
-    uv.spawn("fd", opts, function(code, signal)
-      assert(code == 0, "failed to spawn fd")
-
-      uv.close(pipe)
-      uv.fs_close(out, function(_err)
-        assert(not _err, _err)
-        getlist(outf)
-        notify("search is done")
-      end)
-    end)
-  end)
-end
-
-function M.grep(pattern)
-  local uv = vim.uv
-  local outf = vim.fn.tempname()
-  local pipe = uv.new_pipe(false)
-  local getlist = vim.schedule_wrap(vim.cmd.cfile)
-  local notify = vim.schedule_wrap(vim.notify)
-
-  uv.fs_open(outf, "w", tonumber('666', 8), function(_err, out)
-    assert(not _err, _err)
-
-    local opts = {
-      stdio = { nil, out, nil },
-      args = {"--vimgrep", "-uu", pattern},
-    }
-    uv.spawn("rg", opts, function(code, signal)
-      uv.close(pipe)
-      uv.fs_close(out, function(_err)
-        assert(not _err, _err)
-
-        if code == 0 then
-          getlist(outf)
-          notify("grep is done")
-        else
-          notify("grep is empty")
-        end
-      end)
-    end)
-  end)
 end
 
 return M
