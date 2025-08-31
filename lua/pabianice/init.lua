@@ -75,10 +75,13 @@ function M.setup(opts)
     {
       mode = "n",
 
-      {"<c-p>", feed_find, desc = "Fuzzy file search"},
+      {"<c-p>", feed(":find "), desc = "Fuzzy file search"},
 
       {"<leader>f", group = "async find"},
-      {"<leader>ff", feed_find, desc = "file search"},
+      {
+        "<leader>ff", feed(':lua require("pabianice.1905").find([[]])<Left><Left><Left>'),
+        desc = "file search",
+      },
       {
         "<leader>fg", feed(':lua require("pabianice.1905").grep([[]])<Left><Left><Left>'),
         desc = "grep",
