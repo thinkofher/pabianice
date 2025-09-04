@@ -21,6 +21,7 @@ function M.setup(opts)
   -- searching files
   vim.opt.path:append("**")
   vim.o.wildmenu = true
+  vim.opt.wildmode = { "noselect:longest:lastused", "full" }
   vim.opt.wildignore = { ".git", "*.o", "*.a", "__pycache__", "node_modules" }
   vim.o.incsearch = true
   vim.o.ignorecase = true
