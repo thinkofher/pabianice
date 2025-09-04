@@ -10,7 +10,7 @@ single `:PlugUpdate`.
 
 ## Config file
 
-Just paste below snipper into your `init.lua` file.
+Just paste below snippet into your `init.lua` file.
 
 ```lua
 vim.loader.enable(true)
